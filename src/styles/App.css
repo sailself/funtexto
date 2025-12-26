@@ -116,6 +116,166 @@
     font-feature-settings: "tnum";
 }
 
+/* Menu & Modals */
+.menu-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: none;
+    padding: 8px;
+    border-radius: 50%;
+    color: var(--text-color);
+    transition: background 0.2s;
+}
+
+.menu-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.menu-overlay,
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    backdrop-filter: blur(2px);
+}
+
+.menu-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    background-color: var(--card-bg);
+    z-index: 101;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
+    animation: slideRight 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+@keyframes slideRight {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+.menu-header,
+.modal-header {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.menu-list li {
+    padding: 16px 20px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    font-weight: 500;
+}
+
+.menu-list li:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.menu-list li a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+/* Modal */
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--card-bg);
+    width: 90%;
+    max-width: 400px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    z-index: 102;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.close-btn {
+    background: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 4px;
+    color: #888;
+}
+
+/* Stats */
+.stats-grid {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: var(--bg-color);
+    padding: 16px;
+    border-radius: 12px;
+    width: 100px;
+}
+
+.stat-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* Buttons */
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.secondary-btn {
+    background-color: transparent;
+    color: #666;
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.secondary-btn:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+    color: var(--text-color);
+}
+
 /* Win State */
 .win-message {
     margin-top: 20px;

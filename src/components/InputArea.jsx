@@ -12,17 +12,17 @@ const InputArea = ({ onGuess, disabled }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} class='input-wrapper'>
+        <form onSubmit={handleSubmit} className='input-wrapper'>
             <input
                 type="text"
-                class='guess-input'
+                className='guess-input'
                 placeholder="Type a word..."
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 autoFocus
                 disabled={disabled}
             />
-            <button type="submit" class='submit-btn' disabled={disabled}>
+            <button type="submit" className='submit-btn' disabled={disabled}>
                 Enter
             </button>
         </form>

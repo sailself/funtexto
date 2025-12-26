@@ -18,16 +18,16 @@ const GuessRow = ({ guess }) => {
     if (rank === 1) widthPercent = 100;
 
     return (
-        <div class='guess-row'>
+        <div className='guess-row'>
             <div
-                class='progress-bar'
+                className='progress-bar'
                 style={{
                     width: `${widthPercent}%`,
                     backgroundColor: barColor
                 }}
             />
-            <div class='word-content'>{word}</div>
-            <div class='rank-content'>{rank}</div>
+            <div className='word-content'>{word}</div>
+            <div className='rank-content'>{rank}</div>
         </div>
     );
 };

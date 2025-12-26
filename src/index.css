@@ -1,11 +1,29 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+
+  /* --- Light Theme Variables --- */
+  --bg-color: #f0f2f5;
+  --text-color: #1a1a1b;
+  --surface-color: #ffffff;
+  --input-bg: #e4e6eb;
+  --input-text: #050505;
+  --border-color: #ccc;
+
+  --btn-bg: #e4e6eb;
+  --btn-text: #000;
+  --btn-hover: #d8dadf;
+
+  --link-color: #646cff;
+
+  /* Ranking Colors */
+  --rank-green: #81c784;
+  --rank-yellow: #ffd54f;
+  --rank-red: #e57373;
+  --bar-opacity: 0.6;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,56 +31,378 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* --- Dark Theme Variables --- */
+body.dark-mode {
+  --bg-color: #121212;
+  --text-color: #E0E0E0;
+  --surface-color: #1E1E1E;
+  --input-bg: #2C2C2C;
+  --input-text: #FFFFFF;
+  --border-color: #333;
+
+  --btn-bg: #2C2C2C;
+  --btn-text: #E0E0E0;
+  --btn-hover: #383838;
+
+  --link-color: #BB86FC;
+
+  --rank-green: #388e3c;
+  --rank-yellow: #fbc02d;
+  --rank-red: #d32f2f;
+  --bar-opacity: 0.8;
 }
 
 body {
   margin: 0;
   display: flex;
-  place-items: center;
+  justify-content: center;
+  /* Center horizontally */
   min-width: 320px;
   min-height: 100vh;
+
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  width: 100%;
+  max-width: 600px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Game Info style */
+.header {
+  margin-bottom: 20px;
+}
+
+.game-info {
+  color: var(--text-color);
+  opacity: 0.8;
+  margin-top: 5px;
+  font-size: 0.9rem;
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 2.5em;
   line-height: 1.1;
+  margin-bottom: 0.2em;
 }
 
+a {
+  font-weight: 500;
+  color: var(--link-color);
+  text-decoration: inherit;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- Buttons --- */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--btn-bg);
+  color: var(--btn-text);
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: all 0.2s ease;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+button:hover {
+  background-color: var(--btn-hover);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submit-btn {
+  background-color: var(--link-color);
+  color: #fff;
+  /* Ensure text is white */
+}
+
+/* Ensure dark mode link color is bright enough, or use specific button color */
+body.dark-mode .submit-btn {
+  background-color: #BB86FC;
+  color: #000;
+  /* Dark text on bright purple for contrast */
+}
+
+.submit-btn:hover {
+  filter: brightness(1.1);
+}
+
+.secondary-btn {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  margin: 0 5px;
+  color: var(--text-color);
+}
+
+.secondary-btn:hover {
+  border-color: var(--link-color);
+  background-color: var(--surface-color);
+}
+
+body.dark-mode .secondary-btn {
+  border-color: #666;
+  /* Lighter border for visibility */
+}
+
+
+/* --- Input Area --- */
+.input-wrapper {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+  width: 100%;
+}
+
+.guess-input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  font-size: 1.1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+body.dark-mode .guess-input {
+  background-color: #2C2C2C !important;
+  color: #fff !important;
+  /* Force text to white */
+  border: 1px solid #444;
+}
+
+.guess-input:focus {
+  border-color: var(--link-color);
+}
+
+/* --- Guess Rows --- */
+.guess-row {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: var(--surface-color);
+  /* Fallback bg */
+  border: 1px solid var(--border-color);
+}
+
+.progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  z-index: 0;
+  opacity: var(--bar-opacity);
+  transition: width 0.5s ease-out;
+}
+
+.word-content,
+.rank-content {
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+  color: #fff;
+  /* Base white for difference mode */
+  mix-blend-mode: difference;
+}
+
+body.dark-mode .word-content,
+body.dark-mode .rank-content {
+  /* No special override needed with mix-blend-mode usually, 
+       but we ensure the base is white so difference helps. */
+  color: #fff;
+  text-shadow: none;
+}
+
+/* --- Menu --- */
+.menu-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  padding: 5px;
+  z-index: 102;
+  /* Ensure above drawer if needed, but usually drawer is on top */
+}
+
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.menu-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 250px;
+  background-color: var(--surface-color);
+  /* Use surface color */
+  color: var(--text-color);
+  z-index: 101;
+  padding: 20px;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+  border-right: 1px solid var(--border-color);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.menu-header h2 {
+  font-size: 1.5rem;
+}
+
+.close-btn {
+  background: transparent;
+  font-size: 1.5rem;
+  padding: 0 5px;
+  color: var(--text-color);
+}
+
+.menu-list {
+  list-style: none;
+  padding: 0;
+}
+
+.menu-list li {
+  padding: 12px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s;
+  font-size: 1.1rem;
+}
+
+.menu-list li:hover {
+  background-color: var(--input-bg);
+}
+
+/* --- Modals --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: var(--surface-color);
+  color: var(--text-color);
+  padding: 20px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.modal-header h2 {
+  font-size: 1.5rem;
+}
+
+/* Force Dark Mode backgrounds if vars fail */
+body.dark-mode .menu-drawer,
+body.dark-mode .modal-content {
+  background-color: #1E1E1E;
+  color: #E0E0E0;
+  border-color: #333;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setting-select {
+  padding: 8px;
+  border-radius: 6px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  font-size: 1rem;
+  outline: none;
+}
+
+body.dark-mode .setting-select {
+  background-color: #2C2C2C;
+  color: #fff;
+  border-color: #444;
+}
+
+/* Stats Styling */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  text-align: center;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  background-color: var(--input-bg);
+  border-radius: 8px;
+}
+
+.stat-val {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
 }
