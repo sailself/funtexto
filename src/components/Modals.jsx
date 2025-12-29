@@ -66,6 +66,71 @@ export const SettingsModal = ({ isOpen, onClose, settings, onSettingsChange }) =
                     <option value="pt">Português</option>
                 </select>
             </div>
+            <div className="setting-row">
+                <span>Hint Difficulty</span>
+                <select
+                    className="setting-select"
+                    value={settings.hintDifficulty || 'medium'}
+                    onChange={(e) => handleChange('hintDifficulty', e.target.value)}
+                >
+                    <option value="easy">Easy (Rank / 2)</option>
+                    <option value="medium">Medium (Rank - 1)</option>
+                    <option value="hard">Hard (Random better)</option>
+                </select>
+            </div>
+            <div className="setting-row">
+                <span>Sort History By</span>
+                <select
+                    className="setting-select"
+                    value={settings.sortBy || 'similarity'}
+                    onChange={(e) => handleChange('sortBy', e.target.value)}
+                >
+                    <option value="similarity">Similarity (Rank)</option>
+                    <option value="order">Order (Newest First)</option>
+                </select>
+            </div>
+        </Modal>
+    );
+};
+
+export const RankingModal = ({ isOpen, onClose, words, targetWord }) => {
+    if (!isOpen) return null;
+
+    return (
+        <Modal title="Closest Words" onClose={onClose}>
+            <div className="ranking-header">
+                <p>Today's word was: <strong>{targetWord}</strong></p>
+                <p>These were the top words:</p>
+            </div>
+            <div className="ranking-list">
+                {words.map((item, index) => (
+                    <div key={index} className="ranking-item">
+                        <span className="ranking-word">{item.word}</span>
+                        <span className="ranking-val">{item.rank}</span>
+                    </div>
+                ))}
+            </div>
+        </Modal>
+    );
+};
+
+export const PreviousGamesModal = ({ isOpen, onClose, games, onSelectGame }) => {
+    if (!isOpen) return null;
+
+    return (
+        <Modal title="Previous Games" onClose={onClose}>
+            <div className="ranking-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {games.map((game) => (
+                    <div
+                        key={game.id}
+                        className="ranking-item"
+                        style={{ cursor: 'pointer', justifyContent: 'center' }}
+                        onClick={() => { onSelectGame(game.id); onClose(); }}
+                    >
+                        <span className="ranking-word">{game.title}</span>
+                    </div>
+                ))}
+            </div>
         </Modal>
     );
 };

@@ -8,26 +8,18 @@ if (!fs.existsSync(CACHE_DIR)) {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
 
+// In-memory map to track ongoing generations
+const generationPromises = new Map();
+
 // Ensure we use the Chat/Generation model for creating the list
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
 const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' });
 
-export const getWordList = async (target) => {
-    const sanitizedTarget = target.toLowerCase().trim();
-    const cachePath = path.join(CACHE_DIR, `${sanitizedTarget}.json`);
-
-    if (fs.existsSync(cachePath)) {
-        try {
-            return JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-        } catch (e) {
-            logger.warn(`Failed to read cache for ${target}, regenerating...`, { error: e.message });
-        }
-    }
-
-    logger.info(`Generating ranked word list for target: ${target}`);
+const generateList = async (target, cachePath) => {
+    logger.info(`Starting background generation for target: ${target}`);
     try {
         const prompt = `
-            Generate a list of 500 single unique words that are semantically related to the word "${target}".
+            Generate a list of 200 single unique words that are semantically related to the word "${target}".
             Sort them by semantic closeness to "${target}" (closest first).
             Do NOT include the word "${target}" itself.
             Do NOT include phrases, only single words.
@@ -40,7 +32,7 @@ export const getWordList = async (target) => {
         // Parse words, strictly single words, lowercase
         const words = text.split(/[\n,]+/)
             .map(w => w.trim().toLowerCase())
-            .filter(w => w && w !== sanitizedTarget && !w.includes(' '));
+            .filter(w => w && w !== target && !w.includes(' '));
 
         // Deduplicate and cap
         const uniqueWords = [...new Set(words)];
@@ -48,10 +40,33 @@ export const getWordList = async (target) => {
         // Write to cache
         fs.writeFileSync(cachePath, JSON.stringify(uniqueWords));
         logger.info(`Generated and cached ${uniqueWords.length} words for ${target}`);
-
-        return uniqueWords;
     } catch (e) {
         logger.error(`Failed to generate word list for ${target}`, { error: e.message });
-        return []; // Return empty list on failure
+    } finally {
+        generationPromises.delete(target);
     }
+};
+
+export const getWordList = async (target) => {
+    const sanitizedTarget = target.toLowerCase().trim();
+    const cachePath = path.join(CACHE_DIR, `${sanitizedTarget}.json`);
+
+    // 1. Check File Cache
+    if (fs.existsSync(cachePath)) {
+        try {
+            return JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+        } catch (e) {
+            logger.warn(`Failed to read cache for ${target}, regenerating...`, { error: e.message });
+        }
+    }
+
+    // 2. Not cached? Trigger background generation if not already running
+    if (!generationPromises.has(sanitizedTarget)) {
+        logger.info(`Cache miss for ${target}. Triggering background generation.`);
+        const promise = generateList(sanitizedTarget, cachePath);
+        generationPromises.set(sanitizedTarget, promise);
+    }
+
+    // 3. Return null immediately (don't wait)
+    return null;
 };

@@ -95,25 +95,26 @@ export default async function handler(req, res) {
 
         // 1. Check Pre-computed Word List
         const wordList = await getWordList(targetNorm);
-        const listIndex = wordList.indexOf(guessNorm);
 
-        if (listIndex !== -1) {
-            // Found in list! Rank is index + 2 (because #1 is target, which isn't in list usually, but let's say Top 1 in list is Rank 2)
-            // Wait, "rank 1" is the target. So list[0] is Rank 2.
-            const rank = listIndex + 2;
-            // Fake similarity for display: 1.0 (target) -> 0.6 (rank 1000). Linear map.
-            // Let's say Rank 2 is 0.99, Rank 500 is 0.5?
-            const similarity = Math.max(0.4, 0.99 - (listIndex * 0.001));
+        if (wordList) {
+            const listIndex = wordList.indexOf(guessNorm);
 
-            return res.status(200).json({
-                rank,
-                similarity,
-                word: guessNorm,
-                cached: true
-            });
+            if (listIndex !== -1) {
+                // Found in list! Rank is index + 2 (Target is #1)
+                const rank = listIndex + 2;
+                // Fake similarity for display: 1.0 (target) -> 0.6 (rank 1000).
+                const similarity = Math.max(0.4, 0.99 - (listIndex * 0.001));
+
+                return res.status(200).json({
+                    rank,
+                    similarity,
+                    word: guessNorm,
+                    cached: true
+                });
+            }
         }
 
-        // 2. Fallback to Embeddings
+        // 2. Fallback to Embeddings (If list is missing OR word not in list)
         const [vecTarget, vecGuess] = await Promise.all([
             getEmbedding(targetNorm),
             getEmbedding(guessNorm)
@@ -122,10 +123,10 @@ export default async function handler(req, res) {
         const similarity = cosineSimilarity(vecTarget, vecGuess);
         const baseRank = calculateRank(similarity);
 
-        // Ensure rank is always greater than the list size (e.g. > 500)
-        // If list has 500 words, last rank is 501.
-        // So fallback starts at 502.
-        const listSize = wordList.length || 500;
+        // Ensure rank is always greater than the list size (e.g. > 200)
+        // If list has 200 words, last rank is 201.
+        // So fallback starts at 202.
+        const listSize = wordList ? wordList.length : 200;
         const rank = baseRank + listSize + 1;
 
         return res.status(200).json({
@@ -134,6 +135,8 @@ export default async function handler(req, res) {
             word: guessNorm,
             cached: false
         });
+
+
 
     } catch (error) {
         logger.error('Guess processing failed', { error: error.message });

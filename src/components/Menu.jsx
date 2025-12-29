@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StatsModal, SettingsModal } from './Modals';
 
-const Menu = ({ settings, onSettingsChange }) => {
+const Menu = ({ settings, onSettingsChange, onShowPreviousGames }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [showStats, setShowStats] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -30,6 +30,7 @@ const Menu = ({ settings, onSettingsChange }) => {
                             <button className="close-btn" onClick={() => setIsOpen(false)}>&times;</button>
                         </div>
                         <ul className="menu-list">
+                            <li onClick={() => { onShowPreviousGames(); setIsOpen(false); }}>Previous Games</li>
                             <li onClick={() => { setShowSettings(true); setIsOpen(false); }}>Settings</li>
                             <li onClick={() => { setShowStats(true); setIsOpen(false); }}>History / Stats</li>
                             <li><a href="https://contexto.me" target="_blank" rel="noopener noreferrer">Original Game</a></li>

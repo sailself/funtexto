@@ -406,3 +406,52 @@ body.dark-mode .setting-select {
   font-size: 0.9rem;
   opacity: 0.8;
 }
+
+/* Ranking Modal Styles */
+.ranking-header {
+  margin-bottom: 1rem;
+  text-align: center;
+  color: var(--text-color);
+}
+
+.ranking-list {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.ranking-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background-color: var(--rank-green);
+  /* Default to green/light */
+  border-radius: 4px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+/* Force override for item background based on variable isn't quite right dynamic, 
+   but we can style it generic. Actually Contexto has varied colors. 
+   For now let's just use a nice light blue/green for all items. */
+.ranking-item {
+  background-color: #b2dfdb;
+  /* Light teal */
+}
+
+/* Scrollbar specific for the ranking list */
+.ranking-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ranking-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ranking-list::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 20px;
+}

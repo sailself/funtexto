@@ -35,12 +35,12 @@ export const checkGuess = async (guess, gameId) => {
   }
 };
 
-export const getHint = async (bestGuessWord, gameId) => {
+export const getHint = async (bestGuessWord, gameId, difficulty = 'medium') => {
   try {
     const response = await fetch('/api/hint', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentBestGuess: bestGuessWord, gameId })
+      body: JSON.stringify({ currentBestGuess: bestGuessWord, gameId, difficulty })
     });
     const data = await response.json();
     return data.hint;
@@ -48,6 +48,32 @@ export const getHint = async (bestGuessWord, gameId) => {
     console.error("Hint failed:", error);
     return null;
   }
+};
+
+export const getPreviousGames = () => {
+  const startDate = new Date('2024-01-01');
+  const today = new Date();
+  // Reset time parts for accurate day diff
+  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const current = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const diffTime = Math.abs(current - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // Generate list from Game #1 (or #0) up to yesterday
+  // If today is Game #N, we show list up to #N-1
+  const games = [];
+  // Start loop from 0 to diffDays - 1
+  for (let i = diffDays - 1; i >= 0; i--) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    games.push({
+      id: i,
+      date: d.toLocaleDateString(),
+      title: `Game #${i} (${d.toLocaleDateString()})`
+    });
+  }
+  return games;
 };
 
 export const getSecretWord = async (gameId) => {
@@ -96,4 +122,16 @@ export const loadGame = () => {
 
 export const resetGame = () => {
   localStorage.removeItem('funtexto_game_state');
+};
+
+export const getNearbyWords = async (gameId) => {
+  try {
+    const response = await fetch(`/api/nearby?gameId=${gameId || ''}`);
+    if (!response.ok) throw new Error('Failed to fetch nearby words');
+    const data = await response.json();
+    return data.list || [];
+  } catch (error) {
+    console.error('Error fetching nearby words:', error);
+    return [];
+  }
 };

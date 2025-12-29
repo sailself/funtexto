@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import guessHandler from './api/guess.js';
 import hintHandler from './api/hint.js';
 import revealHandler from './api/reveal.js';
+import nearbyHandler from './api/nearby.js';
 import logger from './api/utils/logger.js';
 
 const app = express();
@@ -29,6 +30,7 @@ app.post('/api/guess', wrap(guessHandler));
 app.post('/api/hint', wrap(hintHandler));
 app.get('/api/reveal', wrap(revealHandler));
 app.post('/api/reveal', wrap(revealHandler));
+app.get('/api/nearby', wrap(nearbyHandler));
 
 const PORT = 3000;
 app.listen(PORT, () => {

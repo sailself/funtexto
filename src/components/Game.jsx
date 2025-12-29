@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import InputArea from './InputArea';
 import GuessList from './GuessList';
 import Menu from './Menu';
-import { checkGuess, saveGame, loadGame, getDailyGameId, getRandomGameId, getHint, updateStats, resetGame, getSecretWord } from '../game/gameLogic';
+import { checkGuess, saveGame, loadGame, getDailyGameId, getRandomGameId, getHint, updateStats, resetGame, getSecretWord, getNearbyWords, getPreviousGames } from '../game/gameLogic';
+import { SettingsModal, RankingModal, PreviousGamesModal } from './Modals';
 
 const Game = () => {
   const [guesses, setGuesses] = useState([]);
@@ -10,6 +11,14 @@ const Game = () => {
   const [loading, setLoading] = useState(false);
   const [errorHeader, setErrorHeader] = useState('');
   const [targetWord, setTargetWord] = useState(''); // Revealed only on win/giveup
+
+  // Ranking Modal State
+  const [rankingModalOpen, setRankingModalOpen] = useState(false);
+  const [rankingList, setRankingList] = useState([]);
+
+  // Previous Games State
+  const [prevGamesModalOpen, setPrevGamesModalOpen] = useState(false);
+  const [prevGamesList, setPrevGamesList] = useState([]);
 
   // Settings State
   const [settings, setSettings] = useState(() => {
@@ -34,9 +43,9 @@ const Game = () => {
 
   // Translations
   const t = {
-    en: { hint: "💡 Hint", giveUp: "🏳️ Give Up", gameOver: "Game Over", secretWas: "The secret word was indeed...", reset: "Reset / New Game", next: "Next Game (Tomorrow)", found: "Found!" },
-    es: { hint: "💡 Pista", giveUp: "🏳️ Rendirse", gameOver: "Fin del Juego", secretWas: "La palabra secreta era...", reset: "Reiniciar / Nuevo Juego", next: "Siguiente Juego (Mañana)", found: "¡Encontrada!" },
-    pt: { hint: "💡 Dica", giveUp: "🏳️ Desistir", gameOver: "Fim de Jogo", secretWas: "A palavra secreta era...", reset: "Reiniciar / Novo Jogo", next: "Próximo Jogo (Amanhã)", found: "Encontrada!" }
+    en: { hint: "💡 Hint", giveUp: "🏳️ Give Up", gameOver: "Game Over", secretWas: "The secret word was indeed...", reset: "Reset / New Game", next: "Next Game (Tomorrow)", found: "Found!", showRank: "Show Closest Words" },
+    es: { hint: "💡 Pista", giveUp: "🏳️ Rendirse", gameOver: "Fin del Juego", secretWas: "La palabra secreta era...", reset: "Reiniciar / Nuevo Juego", next: "Siguiente Juego (Mañana)", found: "¡Encontrada!", showRank: "Ver Palabras Cercanas" },
+    pt: { hint: "💡 Dica", giveUp: "🏳️ Desistir", gameOver: "Fim de Jogo", secretWas: "A palavra secreta era...", reset: "Reiniciar / Novo Jogo", next: "Próximo Jogo (Amanhã)", found: "Encontrada!", showRank: "Ver Palavras Próximas" }
   };
   const txt = t[settings.language] || t.en;
 
@@ -54,17 +63,6 @@ const Game = () => {
   }, [gameId]);
 
   // ... (handleGuess, handleHint, handleGiveUp, handleNewGame unchanged in logic, keeping existing references)
-
-  // Need to verify where handleHint/GiveUp etc are in the file to properly replace surrounding code if I use replace_file_content heavily.
-  // Actually, I should just modify the parts I need.
-
-  // NOTE: I will skip re-declaring the handles here in the replacement block if they are not changing, 
-  // BUT I need to replace the RETURN statement to use `txt` and the `Menu` prop.
-
-  // The tool `replace_file_content` works best with contiguous blocks.
-  // I will split this into two edits:
-  // 1. Top of component (State setup).
-  // 2. Bottom of component (Return statement).
 
 
   const handleGuess = async (word) => {
@@ -105,7 +103,7 @@ const Game = () => {
       : null;
     const bestWord = bestGuess ? bestGuess.word : null;
 
-    const hintWord = await getHint(bestWord, gameId);
+    const hintWord = await getHint(bestWord, gameId, settings.hintDifficulty || 'medium');
     setLoading(false);
     if (hintWord) {
       // Auto-submit the hint as a guess
@@ -127,9 +125,42 @@ const Game = () => {
     // Auto-reset happens in useEffect when gameId changes
   };
 
+  const handleShowRanking = async () => {
+    if (rankingList.length === 0) {
+      setLoading(true);
+      const list = await getNearbyWords(gameId);
+      setRankingList(list);
+      setLoading(false);
+    }
+    setRankingModalOpen(true);
+  };
+
+  const handleShowPreviousGames = () => {
+    const list = getPreviousGames();
+    setPrevGamesList(list);
+    setPrevGamesModalOpen(true);
+  };
+
+  const handleShare = () => {
+    const green = guesses.filter(g => g.rank <= 300).length;
+    const yellow = guesses.filter(g => g.rank > 300 && g.rank <= 1500).length;
+    const red = guesses.filter(g => g.rank > 1500).length;
+
+    const text = `I played Funtexto #${gameId} and found it in ${guesses.length} guesses.\n\n` +
+      `🟩 ${green}\n🟨 ${yellow}\n🟥 ${red}\n\nhttps://funtexto.vercel.app`; // or current URL
+
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Copied results to clipboard!");
+    });
+  };
+
   return (
     <div className='app-container'>
-      <Menu settings={settings} onSettingsChange={setSettings} />
+      <Menu
+        settings={settings}
+        onSettingsChange={setSettings}
+        onShowPreviousGames={handleShowPreviousGames}
+      />
 
       <div className='header'>
         <h1>funtexto</h1>
@@ -141,8 +172,14 @@ const Game = () => {
         <div className='win-message'>
           <h3>{txt.gameOver}</h3>
           <p>{txt.secretWas} <strong>{targetWord || txt.found}</strong></p>
-          <div className='action-buttons' style={{ justifyContent: 'center' }}>
+          <div className='action-buttons' style={{ justifyContent: 'center', gap: '10px' }}>
             <button className='secondary-btn' onClick={handleNewGame}>{txt.reset}</button>
+            <button className='secondary-btn' onClick={handleShowRanking}>
+              {txt.showRank}
+            </button>
+            <button className='secondary-btn' onClick={handleShare}>
+              Share 📋
+            </button>
           </div>
         </div>
       )}
@@ -164,11 +201,24 @@ const Game = () => {
 
         {loading && <div style={{ textAlign: 'center', padding: '10px', opacity: 0.5 }}>Thinking...</div>}
 
-        <GuessList guesses={guesses} />
+        <GuessList guesses={guesses} sortBy={settings.sortBy} />
       </div>
+
+      <RankingModal
+        isOpen={rankingModalOpen}
+        onClose={() => setRankingModalOpen(false)}
+        words={rankingList}
+        targetWord={targetWord}
+      />
+
+      <PreviousGamesModal
+        isOpen={prevGamesModalOpen}
+        onClose={() => setPrevGamesModalOpen(false)}
+        games={prevGamesList}
+        onSelectGame={(id) => setGameId(id)}
+      />
     </div>
   );
 };
-
 export default Game;
 

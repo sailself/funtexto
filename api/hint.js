@@ -26,23 +26,50 @@ export default async function handler(req, res) {
             let hintIndex = -1;
 
             if (!currentBestGuess) {
-                // No guess yet? Give a middle-ground hint, not too easy, not too hard.
-                // Say Rank 200 (index 198)
-                hintIndex = Math.min(wordList.length - 1, 198);
+                // No guess yet? Defaults based on difficulty
+                // Easy: Rank 500
+                // Medium: Rank 1000
+                // Hard: Rank 2000
+                const diff = req.body.difficulty || 'medium';
+                if (diff === 'easy') hintIndex = Math.min(wordList.length - 1, 499);
+                else if (diff === 'hard') hintIndex = Math.min(wordList.length - 1, 1999);
+                else hintIndex = Math.min(wordList.length - 1, 999);
             } else {
                 const currentIdx = wordList.indexOf(currentBestGuess.toLowerCase().trim());
+                // currentIdx is 0-based index. Rank = currentIdx + 1.
+
                 if (currentIdx !== -1) {
-                    // User is in the list. Give them a better word (improve rank by ~10%)
-                    const improvement = Math.ceil(currentIdx * 0.1) + 1; // at least 1 step
-                    hintIndex = Math.max(0, currentIdx - improvement);
+                    const currentRank = currentIdx + 1;
+                    const diff = req.body.difficulty || 'medium';
+                    let targetRank;
+
+                    if (diff === 'easy') {
+                        // Easy: Half the rank (e.g. 500 -> 250)
+                        targetRank = Math.max(1, Math.floor(currentRank / 2));
+                    } else if (diff === 'medium') {
+                        // Medium: Rank - 1 (e.g. 500 -> 499)
+                        targetRank = Math.max(1, currentRank - 1);
+                    } else {
+                        // Hard: Random rank better than current
+                        // Random between 1 and currentRank - 1
+                        if (currentRank <= 1) targetRank = 1;
+                        else targetRank = Math.floor(Math.random() * (currentRank - 1)) + 1;
+                    }
+
+                    hintIndex = targetRank - 1; // back to 0-based index
                 } else {
-                    // User is not in the list (Rank > 500). Bring them into the list.
-                    // Give the last word in the list (Rank 500)
+                    // User is not in the list (Rank > 500). 
+                    // Bring them into the list at the bottom or based on difficulty?
+                    // Let's just give them the last word in our list (usually top 5000) 
+                    // to get them Started.
                     hintIndex = wordList.length - 1;
                 }
             }
 
-            // Only give a hint if it's different from current best (it should be)
+            // Safety check
+            if (hintIndex < 0) hintIndex = 0;
+            if (hintIndex >= wordList.length) hintIndex = wordList.length - 1;
+
             const hint = wordList[hintIndex];
             return res.status(200).json({ hint });
         }
