@@ -50,6 +50,10 @@ const Game = () => {
   const txt = t[settings.language] || t.en;
 
   useEffect(() => {
+    // Reset transient state when gameId changes
+    setRankingList([]);
+    setTargetWord('');
+
     const saved = loadGame();
     if (saved && saved.gameId === gameId) {
       setGuesses(saved.guesses);
@@ -96,18 +100,31 @@ const Game = () => {
   };
 
   const handleHint = async () => {
-    setLoading(true);
-    // Find best guess so far
-    const bestGuess = guesses.length > 0
-      ? guesses.reduce((prev, curr) => (prev.rank < curr.rank ? prev : curr))
-      : null;
-    const bestWord = bestGuess ? bestGuess.word : null;
+    try {
+      setLoading(true);
+      setErrorHeader('');
 
-    const hintWord = await getHint(bestWord, gameId, settings.hintDifficulty || 'medium');
-    setLoading(false);
-    if (hintWord) {
-      // Auto-submit the hint as a guess
-      handleGuess(hintWord);
+      // Find best guess so far
+      const bestGuess = guesses.length > 0
+        ? guesses.reduce((prev, curr) => (prev.rank < curr.rank ? prev : curr))
+        : null;
+      const bestWord = bestGuess ? bestGuess.word : null;
+
+      const hintWord = await getHint(bestWord, gameId, settings.hintDifficulty || 'medium');
+
+      if (hintWord) {
+        // We MUST set loading(false) here, because handleGuess checks if(loading) return;
+        // This was causing the "stuck at Thinking..." bug.
+        setLoading(false);
+        await handleGuess(hintWord);
+      } else {
+        // No hint returned (maybe error or none found)
+        setErrorHeader('Could not get a hint. Try again?');
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error("Hint error", e);
+      setLoading(false);
     }
   };
 

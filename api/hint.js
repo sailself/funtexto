@@ -27,51 +27,78 @@ export default async function handler(req, res) {
 
             if (!currentBestGuess) {
                 // No guess yet? Defaults based on difficulty
-                // Easy: Rank 500
-                // Medium: Rank 1000
-                // Hard: Rank 2000
                 const diff = req.body.difficulty || 'medium';
                 if (diff === 'easy') hintIndex = Math.min(wordList.length - 1, 499);
                 else if (diff === 'hard') hintIndex = Math.min(wordList.length - 1, 1999);
                 else hintIndex = Math.min(wordList.length - 1, 999);
             } else {
                 const currentIdx = wordList.indexOf(currentBestGuess.toLowerCase().trim());
-                // currentIdx is 0-based index. Rank = currentIdx + 1.
 
                 if (currentIdx !== -1) {
-                    const currentRank = currentIdx + 1;
+                    // Found in list. We want an index LOWER than currentIdx (closer to 0).
                     const diff = req.body.difficulty || 'medium';
-                    let targetRank;
+                    let step = 1; // Default medium (1 step better)
 
                     if (diff === 'easy') {
-                        // Easy: Half the rank (e.g. 500 -> 250)
-                        targetRank = Math.max(1, Math.floor(currentRank / 2));
-                    } else if (diff === 'medium') {
-                        // Medium: Rank - 1 (e.g. 500 -> 499)
-                        targetRank = Math.max(1, currentRank - 1);
+                        // Easy: Jump halfway to the top
+                        // currentIdx 500 -> 250
+                        const listRank = currentIdx + 1;
+                        const targetRank = Math.floor(listRank / 2);
+                        step = currentIdx - (targetRank - 1);
+                        // Simplified: targetIdx = Math.floor(currentIdx / 2)
+                    } else if (diff === 'hard') {
+                        // Hard: Random step
+                        step = Math.max(1, Math.floor(Math.random() * (currentIdx / 2)));
                     } else {
-                        // Hard: Random rank better than current
-                        // Random between 1 and currentRank - 1
-                        if (currentRank <= 1) targetRank = 1;
-                        else targetRank = Math.floor(Math.random() * (currentRank - 1)) + 1;
+                        // Medium: Just 1 step (next best word)
+                        step = 1;
                     }
 
-                    hintIndex = targetRank - 1; // back to 0-based index
+                    // For 'easy' override logic above to be simpler
+                    if (diff === 'easy') {
+                        hintIndex = Math.floor(currentIdx / 2);
+                    } else if (diff === 'hard') {
+                        // Random index between 0 and currentIdx - 1
+                        if (currentIdx > 0) {
+                            hintIndex = Math.floor(Math.random() * currentIdx);
+                        } else {
+                            hintIndex = 0; // Already at top
+                        }
+                    } else {
+                        // Medium
+                        hintIndex = currentIdx - 1;
+                    }
+
+                    // Enforce improvement
+                    if (hintIndex >= currentIdx && currentIdx > 0) {
+                        hintIndex = currentIdx - 1;
+                    }
+
+                    // If we're at index 0 (Rank 2), we can't give a better word from the list!
+                    // We must return early to use Gemini fallback or special message?
+                    if (hintIndex < 0) {
+                        // Fallback to Gemini for a semantic description since we can't give a closer word
+                        // Set wordList to empty to force fallback? Or handled below?
+                        // hintIndex = -1;
+                    }
+
                 } else {
-                    // User is not in the list (Rank > 500). 
-                    // Bring them into the list at the bottom or based on difficulty?
-                    // Let's just give them the last word in our list (usually top 5000) 
-                    // to get them Started.
+                    // User is not in the list.
+                    // Give them the last word to get started.
                     hintIndex = wordList.length - 1;
                 }
             }
 
-            // Safety check
-            if (hintIndex < 0) hintIndex = 0;
-            if (hintIndex >= wordList.length) hintIndex = wordList.length - 1;
+            // If hintIndex is valid (>=0), return it.
+            if (hintIndex >= 0 && hintIndex < wordList.length) {
+                const hint = wordList[hintIndex];
 
-            const hint = wordList[hintIndex];
-            return res.status(200).json({ hint });
+                // Double check we are not returning the same word (e.g. prompt override)
+                if (hint.toLowerCase() !== (currentBestGuess || '').toLowerCase()) {
+                    return res.status(200).json({ hint });
+                }
+            }
+            // If hintIndex < 0 (i.e. User is at #0) or invalid, fall through to Gemini
         }
 
         // 2. Fallback: Ask Gemini for a hint (if cache failed)
