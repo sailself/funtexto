@@ -1,222 +1,409 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import InputArea from './InputArea';
 import GuessList from './GuessList';
 import Menu from './Menu';
-import { checkGuess, saveGame, loadGame, getDailyGameId, getRandomGameId, getHint, updateStats, resetGame, getSecretWord, getNearbyWords, getPreviousGames } from '../game/gameLogic';
-import { SettingsModal, RankingModal, PreviousGamesModal } from './Modals';
+import { PreviousGamesModal, RankingModal } from './Modals';
+import {
+  checkGuess,
+  getCurrentGame,
+  getHint,
+  getNearbyWords,
+  getPreviousGames,
+  getSecretWord,
+  loadGame,
+  loadSettings,
+  resetGame,
+  saveGame,
+  saveSettings,
+  updateStats,
+} from '../game/gameLogic';
 
-const Game = () => {
+const translations = {
+  en: {
+    hint: 'Hint',
+    giveUp: 'Give Up',
+    gameOver: 'Game Over',
+    secretWas: 'The secret word was',
+    replay: 'Replay Current Game',
+    nextGame: 'Check for New Game',
+    found: 'Found',
+    showRank: 'Show Closest Words',
+    share: 'Share Results',
+    thinking: 'Thinking...',
+    copied: 'Results copied to clipboard.',
+    shareFailed: 'Clipboard access is not available in this browser.',
+    loadingGames: 'Loading games...',
+    duplicateGuess: 'You already tried that word.',
+    missingGame: 'No active game is available right now.',
+    invalidGuess: 'Could not score that guess. Try another word.',
+    hintUnavailable: 'Could not find a hint right now.',
+    previousGames: 'Previous Games',
+    headerStatus: 'Guesses',
+  },
+  es: {
+    hint: 'Pista',
+    giveUp: 'Rendirse',
+    gameOver: 'Fin del juego',
+    secretWas: 'La palabra secreta era',
+    replay: 'Repetir juego actual',
+    nextGame: 'Buscar juego nuevo',
+    found: 'Encontrada',
+    showRank: 'Ver palabras cercanas',
+    share: 'Compartir resultados',
+    thinking: 'Pensando...',
+    copied: 'Resultados copiados al portapapeles.',
+    shareFailed: 'El portapapeles no est\u00e1 disponible en este navegador.',
+    loadingGames: 'Cargando juegos...',
+    duplicateGuess: 'Ya intentaste esa palabra.',
+    missingGame: 'No hay un juego activo disponible.',
+    invalidGuess: 'No se pudo evaluar esa palabra. Intenta otra.',
+    hintUnavailable: 'No se pudo conseguir una pista ahora mismo.',
+    previousGames: 'Juegos anteriores',
+    headerStatus: 'Intentos',
+  },
+  pt: {
+    hint: 'Dica',
+    giveUp: 'Desistir',
+    gameOver: 'Fim de jogo',
+    secretWas: 'A palavra secreta era',
+    replay: 'Rejogar partida atual',
+    nextGame: 'Buscar novo jogo',
+    found: 'Encontrada',
+    showRank: 'Ver palavras pr\u00f3ximas',
+    share: 'Compartilhar resultados',
+    thinking: 'Pensando...',
+    copied: 'Resultados copiados para a \u00e1rea de transfer\u00eancia.',
+    shareFailed: 'A \u00e1rea de transfer\u00eancia n\u00e3o est\u00e1 dispon\u00edvel neste navegador.',
+    loadingGames: 'Carregando jogos...',
+    duplicateGuess: 'Voc\u00ea j\u00e1 tentou essa palavra.',
+    missingGame: 'Nenhum jogo ativo est\u00e1 dispon\u00edvel agora.',
+    invalidGuess: 'N\u00e3o foi poss\u00edvel avaliar essa palavra. Tente outra.',
+    hintUnavailable: 'N\u00e3o foi poss\u00edvel obter uma dica agora.',
+    previousGames: 'Jogos anteriores',
+    headerStatus: 'Tentativas',
+  },
+};
+
+function buildSavedGameState(gameId, guesses, finished, outcome, targetWord) {
+  return {
+    gameId,
+    guesses,
+    finished,
+    outcome,
+    targetWord,
+  };
+}
+
+export default function Game() {
+  const [gameId, setGameId] = useState(null);
   const [guesses, setGuesses] = useState([]);
   const [finished, setFinished] = useState(false);
+  const [targetWord, setTargetWord] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errorHeader, setErrorHeader] = useState('');
-  const [targetWord, setTargetWord] = useState(''); // Revealed only on win/giveup
-
-  // Ranking Modal State
+  const [errorMessage, setErrorMessage] = useState('');
+  const [copyMessage, setCopyMessage] = useState('');
   const [rankingModalOpen, setRankingModalOpen] = useState(false);
   const [rankingList, setRankingList] = useState([]);
+  const [previousGamesModalOpen, setPreviousGamesModalOpen] = useState(false);
+  const [previousGames, setPreviousGames] = useState([]);
+  const [settings, setSettings] = useState(loadSettings);
 
-  // Previous Games State
-  const [prevGamesModalOpen, setPrevGamesModalOpen] = useState(false);
-  const [prevGamesList, setPrevGamesList] = useState([]);
+  const text = useMemo(
+    () => translations[settings.language] || translations.en,
+    [settings.language],
+  );
 
-  // Settings State
-  const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('funtexto_settings');
-    return saved ? JSON.parse(saved) : { theme: 'light', language: 'en' };
-  });
-
-  const [gameId, setGameId] = useState(() => {
-    // Check if we have a saved game state, if so, continue that game (even if random)
-    // Otherwise default to daily
-    const saved = loadGame();
-    return saved ? saved.gameId : getDailyGameId();
-  });
-
-  // Apply Theme
-  useEffect(() => {
-    document.body.className = settings.theme === 'dark' ? 'dark-mode' : '';
-    localStorage.setItem('funtexto_settings', JSON.stringify(settings));
-  }, [settings]);
-
-  // Load Game state ... (rest of useEffect)
-
-  // Translations
-  const t = {
-    en: { hint: "💡 Hint", giveUp: "🏳️ Give Up", gameOver: "Game Over", secretWas: "The secret word was indeed...", reset: "Reset / New Game", next: "Next Game (Tomorrow)", found: "Found!", showRank: "Show Closest Words" },
-    es: { hint: "💡 Pista", giveUp: "🏳️ Rendirse", gameOver: "Fin del Juego", secretWas: "La palabra secreta era...", reset: "Reiniciar / Nuevo Juego", next: "Siguiente Juego (Mañana)", found: "¡Encontrada!", showRank: "Ver Palabras Cercanas" },
-    pt: { hint: "💡 Dica", giveUp: "🏳️ Desistir", gameOver: "Fim de Jogo", secretWas: "A palavra secreta era...", reset: "Reiniciar / Novo Jogo", next: "Próximo Jogo (Amanhã)", found: "Encontrada!", showRank: "Ver Palavras Próximas" }
-  };
-  const txt = t[settings.language] || t.en;
-
-  useEffect(() => {
-    // Reset transient state when gameId changes
+  function switchToGame(nextGameId) {
+    const savedGame = loadGame(nextGameId);
     setRankingList([]);
-    setTargetWord('');
+    setErrorMessage('');
+    setCopyMessage('');
+    setGameId(nextGameId);
 
-    const saved = loadGame();
-    if (saved && saved.gameId === gameId) {
-      setGuesses(saved.guesses);
-      setFinished(saved.won);
-      // If loaded finished game, we might want to ensure stats were synced, but typically we sync on finish event.
-    } else {
-      // New day or first game
-      setGuesses([]);
-      setFinished(false);
-    }
-  }, [gameId]);
-
-  // ... (handleGuess, handleHint, handleGiveUp, handleNewGame unchanged in logic, keeping existing references)
-
-
-  const handleGuess = async (word) => {
-    if (finished || loading) return;
-    if (guesses.some(g => g.word.toLowerCase() === word.trim().toLowerCase())) return;
-
-    setLoading(true);
-    setErrorHeader('');
-
-    // Optimistic UI update or loading spinner could go here...
-
-    const result = await checkGuess(word, gameId);
-    setLoading(false);
-
-    if (!result) {
-      setErrorHeader('Connection Error: check API Key');
+    if (savedGame) {
+      setGuesses(savedGame.guesses);
+      setFinished(savedGame.finished);
+      setTargetWord(savedGame.targetWord);
       return;
     }
 
-    const newGuesses = [...guesses, result];
-    const isWin = result.rank === 1;
+    setGuesses([]);
+    setFinished(false);
+    setTargetWord('');
+  }
 
-    setGuesses(newGuesses);
-    if (isWin) {
-      setFinished(true);
-      setTargetWord(result.word);
-      updateStats(gameId, true);
-    }
+  useEffect(() => {
+    document.body.classList.toggle('dark-mode', settings.theme === 'dark');
+    saveSettings(settings);
+  }, [settings]);
 
-    saveGame(newGuesses, isWin, gameId);
-  };
+  useEffect(() => {
+    let ignore = false;
 
-  const handleHint = async () => {
-    try {
+    async function initializeGame() {
       setLoading(true);
-      setErrorHeader('');
+      setErrorMessage('');
 
-      // Find best guess so far
-      const bestGuess = guesses.length > 0
-        ? guesses.reduce((prev, curr) => (prev.rank < curr.rank ? prev : curr))
-        : null;
-      const bestWord = bestGuess ? bestGuess.word : null;
-
-      const hintWord = await getHint(bestWord, gameId, settings.hintDifficulty || 'medium');
-
-      if (hintWord) {
-        // We MUST set loading(false) here, because handleGuess checks if(loading) return;
-        // This was causing the "stuck at Thinking..." bug.
-        setLoading(false);
-        await handleGuess(hintWord);
-      } else {
-        // No hint returned (maybe error or none found)
-        setErrorHeader('Could not get a hint. Try again?');
-        setLoading(false);
+      const currentGameId = await getCurrentGame();
+      if (ignore) {
+        return;
       }
-    } catch (e) {
-      console.error("Hint error", e);
+
+      if (!currentGameId) {
+        setLoading(false);
+        setErrorMessage(text.missingGame);
+        return;
+      }
+
+      switchToGame(currentGameId);
       setLoading(false);
     }
-  };
 
-  const handleGiveUp = async () => {
+    void initializeGame();
+
+    return () => {
+      ignore = true;
+    };
+  }, [text.missingGame]);
+
+  const guessCount = guesses.length;
+
+  async function handleGuess(rawWord) {
+    const normalizedWord = rawWord.trim();
+    if (!normalizedWord || finished || loading || !gameId) {
+      return;
+    }
+
+    if (guesses.some((guess) => guess.word.toLowerCase() === normalizedWord.toLowerCase())) {
+      setErrorMessage(text.duplicateGuess);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+    setCopyMessage('');
+
+    const result = await checkGuess(normalizedWord, gameId);
+    setLoading(false);
+
+    if (!result) {
+      setErrorMessage(text.invalidGuess);
+      return;
+    }
+
+    const nextGuess = {
+      ...result,
+      guessNumber: guessCount + 1,
+    };
+
+    const nextGuesses = [...guesses, nextGuess];
+    const didWin = result.rank === 1;
+
+    setGuesses(nextGuesses);
+    setFinished(didWin);
+    setTargetWord(didWin ? result.word : '');
+
+    if (didWin) {
+      updateStats(gameId, 'won');
+    }
+
+    saveGame(buildSavedGameState(gameId, nextGuesses, didWin, didWin ? 'won' : null, didWin ? result.word : ''));
+  }
+
+  async function handleHint() {
+    if (finished || loading || !gameId) {
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+    setCopyMessage('');
+
+    const bestGuess =
+      guesses.length > 0
+        ? guesses.reduce((best, current) => (current.rank < best.rank ? current : best))
+        : null;
+
+    const hintWord = await getHint(bestGuess?.word ?? null, gameId, settings.hintDifficulty);
+
+    if (!hintWord) {
+      setLoading(false);
+      setErrorMessage(text.hintUnavailable);
+      return;
+    }
+
+    setLoading(false);
+    await handleGuess(hintWord);
+  }
+
+  async function handleGiveUp() {
+    if (finished || loading || !gameId) {
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+    setCopyMessage('');
+
+    const secretWord = await getSecretWord(gameId, { giveUp: true });
+    setLoading(false);
+
     setFinished(true);
-    // Fetch the actual secret word
-    const secret = await getSecretWord(gameId);
-    setTargetWord(secret);
-    updateStats(gameId, false);
-    saveGame(guesses, true, gameId); // Mark as 'done' so it persists as finished
-  };
+    setTargetWord(secretWord);
+    updateStats(gameId, 'given_up');
+    saveGame(buildSavedGameState(gameId, guesses, true, 'given_up', secretWord));
+  }
 
-  const handleNewGame = () => {
-    setGameId(getRandomGameId());
-    // Auto-reset happens in useEffect when gameId changes
-  };
+  function handleReplayCurrentGame() {
+    if (!gameId) {
+      return;
+    }
 
-  const handleShowRanking = async () => {
+    resetGame(gameId);
+    setGuesses([]);
+    setFinished(false);
+    setTargetWord('');
+    setRankingList([]);
+    setErrorMessage('');
+    setCopyMessage('');
+  }
+
+  async function handleCheckForNewGame() {
+    if (!gameId) {
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+    setCopyMessage('');
+
+    const currentGameId = await getCurrentGame();
+    setLoading(false);
+
+    if (currentGameId && currentGameId !== gameId) {
+      switchToGame(currentGameId);
+      return;
+    }
+
+    const shouldReplay = window.confirm('No new game is available yet. Replay this one from scratch?');
+    if (!shouldReplay) {
+      return;
+    }
+
+    handleReplayCurrentGame();
+  }
+
+  async function handleShowRanking() {
+    if (!gameId) {
+      return;
+    }
+
     if (rankingList.length === 0) {
       setLoading(true);
-      const list = await getNearbyWords(gameId);
-      setRankingList(list);
+      const words = await getNearbyWords(gameId);
+      setRankingList(words);
       setLoading(false);
     }
+
     setRankingModalOpen(true);
-  };
+  }
 
-  const handleShowPreviousGames = () => {
-    const list = getPreviousGames();
-    setPrevGamesList(list);
-    setPrevGamesModalOpen(true);
-  };
+  async function handleShowPreviousGames() {
+    setLoading(true);
+    setErrorMessage('');
 
-  const handleShare = () => {
-    const green = guesses.filter(g => g.rank <= 300).length;
-    const yellow = guesses.filter(g => g.rank > 300 && g.rank <= 1500).length;
-    const red = guesses.filter(g => g.rank > 1500).length;
+    const games = await getPreviousGames();
+    setPreviousGames(games);
+    setLoading(false);
+    setPreviousGamesModalOpen(true);
+  }
 
-    const text = `I played Funtexto #${gameId} and found it in ${guesses.length} guesses.\n\n` +
-      `🟩 ${green}\n🟨 ${yellow}\n🟥 ${red}\n\nhttps://funtexto.vercel.app`; // or current URL
+  async function handleShare() {
+    if (!gameId || guesses.length === 0) {
+      return;
+    }
 
-    navigator.clipboard.writeText(text).then(() => {
-      alert("Copied results to clipboard!");
-    });
-  };
+    const green = guesses.filter((guess) => guess.rank <= 300).length;
+    const yellow = guesses.filter((guess) => guess.rank > 300 && guess.rank <= 1500).length;
+    const red = guesses.filter((guess) => guess.rank > 1500).length;
+
+    const summary = [
+      `Funtexto #${gameId}`,
+      `${guesses.length} guesses`,
+      `Green: ${green}`,
+      `Yellow: ${yellow}`,
+      `Red: ${red}`,
+      window.location.origin,
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(summary);
+      setCopyMessage(text.copied);
+    } catch (error) {
+      console.error('Failed to copy share text', error);
+      setCopyMessage(text.shareFailed);
+    }
+  }
 
   return (
-    <div className='app-container'>
+    <div className="app-container">
       <Menu
         settings={settings}
         onSettingsChange={setSettings}
         onShowPreviousGames={handleShowPreviousGames}
       />
 
-      <div className='header'>
+      <header className="header">
         <h1>funtexto</h1>
-        <div className='game-info'>Game #{gameId} • Guesses: {guesses.length}</div>
-        {errorHeader && <div style={{ color: 'red', fontSize: '0.8rem' }}>{errorHeader}</div>}
-      </div>
-
-      {finished && (
-        <div className='win-message'>
-          <h3>{txt.gameOver}</h3>
-          <p>{txt.secretWas} <strong>{targetWord || txt.found}</strong></p>
-          <div className='action-buttons' style={{ justifyContent: 'center', gap: '10px' }}>
-            <button className='secondary-btn' onClick={handleNewGame}>{txt.reset}</button>
-            <button className='secondary-btn' onClick={handleShowRanking}>
-              {txt.showRank}
-            </button>
-            <button className='secondary-btn' onClick={handleShare}>
-              Share 📋
-            </button>
-          </div>
+        <div className="game-info">
+          Game #{gameId ?? '--'} | {text.headerStatus}: {guessCount}
         </div>
-      )}
+        {errorMessage ? <p className="header-message header-message-error">{errorMessage}</p> : null}
+        {!errorMessage && copyMessage ? <p className="header-message">{copyMessage}</p> : null}
+      </header>
 
-      {/* Main Gameplay Area */}
-      <div style={{ width: '100%', maxWidth: '600px' }}>
-        <InputArea onGuess={handleGuess} disabled={finished || loading} />
-
-        {!finished && (
-          <div className='action-buttons' style={{ justifyContent: 'center', marginBottom: '10px' }}>
-            <button className='secondary-btn' onClick={handleHint} disabled={loading}>
-              {txt.hint}
+      {finished ? (
+        <section className="win-message">
+          <h3>{text.gameOver}</h3>
+          <p>
+            {text.secretWas} <strong>{targetWord || text.found}</strong>
+          </p>
+          <div className="action-buttons">
+            <button className="secondary-btn" type="button" onClick={handleCheckForNewGame}>
+              {text.nextGame}
             </button>
-            <button className='secondary-btn' onClick={handleGiveUp} disabled={loading}>
-              {txt.giveUp}
+            <button className="secondary-btn" type="button" onClick={handleShowRanking}>
+              {text.showRank}
+            </button>
+            <button className="secondary-btn" type="button" onClick={handleShare}>
+              {text.share}
+            </button>
+            <button className="secondary-btn" type="button" onClick={handleReplayCurrentGame}>
+              {text.replay}
             </button>
           </div>
-        )}
+        </section>
+      ) : null}
 
-        {loading && <div style={{ textAlign: 'center', padding: '10px', opacity: 0.5 }}>Thinking...</div>}
+      <div className="game-panel">
+        <InputArea onGuess={handleGuess} disabled={finished || loading || !gameId} />
+
+        {!finished ? (
+          <div className="action-buttons">
+            <button className="secondary-btn" type="button" onClick={handleHint} disabled={loading || !gameId}>
+              {text.hint}
+            </button>
+            <button className="secondary-btn" type="button" onClick={handleGiveUp} disabled={loading || !gameId}>
+              {text.giveUp}
+            </button>
+          </div>
+        ) : null}
+
+        {loading ? <div className="loading-message">{text.thinking}</div> : null}
+
+        {!gameId && !loading && !errorMessage ? (
+          <div className="loading-message">{text.loadingGames}</div>
+        ) : null}
 
         <GuessList guesses={guesses} sortBy={settings.sortBy} />
       </div>
@@ -229,13 +416,11 @@ const Game = () => {
       />
 
       <PreviousGamesModal
-        isOpen={prevGamesModalOpen}
-        onClose={() => setPrevGamesModalOpen(false)}
-        games={prevGamesList}
-        onSelectGame={(id) => setGameId(id)}
+        isOpen={previousGamesModalOpen}
+        onClose={() => setPreviousGamesModalOpen(false)}
+        games={previousGames}
+        onSelectGame={switchToGame}
       />
     </div>
   );
-};
-export default Game;
-
+}

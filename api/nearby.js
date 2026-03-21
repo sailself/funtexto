@@ -1,37 +1,33 @@
 import logger from './utils/logger.js';
-import { getTarget } from './utils/target.js';
-import { getWordList } from './utils/wordCache.js';
+import { getGameByIdOrLatest, getRelatedWordsForGame } from './utils/gameRepository.js';
 
 export default async function handler(req, res) {
-    if (req.method !== 'GET') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  try {
+    const game = getGameByIdOrLatest(req.query?.gameId);
+    if (!game) {
+      return res.status(404).json({ error: 'No active game found' });
     }
 
-    const { gameId } = req.query;
-    const target = getTarget(gameId);
+    const list = [
+      { word: game.target_word, rank: 1, similarity: 1 },
+      ...getRelatedWordsForGame(game.id).map((row) => ({
+        word: row.word,
+        rank: row.rank,
+        similarity: row.similarity,
+      })),
+    ];
 
-    try {
-        const wordList = await getWordList(target);
-
-        if (!wordList) {
-            return res.status(200).json({ list: [] });
-        }
-
-        // Format for frontend: { word, rank }
-        // The list is ordered by rank (closest first).
-        // Index 0 = Rank 2 (since Rank 1 is the target itself)
-        const formattedList = wordList.map((word, index) => ({
-            word,
-            rank: index + 2
-        }));
-
-        // Add the target itself as Rank 1
-        formattedList.unshift({ word: target, rank: 1 });
-
-        return res.status(200).json({ list: formattedList });
-
-    } catch (error) {
-        logger.error('Nearby list fetch failed', { error: error.message });
-        return res.status(500).json({ error: 'Failed to fetch list' });
-    }
+    return res.status(200).json({
+      list,
+      gameId: game.id,
+      gameNumber: game.game_number,
+    });
+  } catch (error) {
+    logger.error('Nearby list fetch failed', { error: error.message });
+    return res.status(500).json({ error: 'Failed to fetch list' });
+  }
 }

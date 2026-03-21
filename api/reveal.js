@@ -1,15 +1,32 @@
-import { getTarget } from './utils/target.js';
+import db from './db/index.js';
+import { getGameByIdOrLatest } from './utils/gameRepository.js';
+
+const markGameGivenUpStmt = db.prepare(`
+  UPDATE play_history
+  SET status = 'given_up', finished_at = CURRENT_TIMESTAMP
+  WHERE user_id = ? AND game_id = ? AND status = 'playing'
+`);
 
 export default function handler(req, res) {
-    if (req.method !== 'GET' && req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
-    }
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
-    // Support both GET query and POST body for gameId
-    const gameId = req.method === 'GET' ? req.query.gameId : req.body?.gameId;
-    const secretOverride = req.body?.secretOverride;
+  const input = req.method === 'GET' ? req.query : req.body;
+  const game = getGameByIdOrLatest(input?.gameId);
+  const secretOverride = input?.secretOverride;
 
-    const target = secretOverride || getTarget(gameId);
+  if (!game && !secretOverride) {
+    return res.status(404).json({ error: 'No active game found' });
+  }
 
-    return res.status(200).json({ word: target });
+  if (input?.giveUp && req.user?.id && game) {
+    markGameGivenUpStmt.run(req.user.id, game.id);
+  }
+
+  return res.status(200).json({
+    word: secretOverride || game.target_word,
+    gameId: game?.id ?? null,
+    gameNumber: game?.game_number ?? null,
+  });
 }

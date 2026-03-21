@@ -103,6 +103,18 @@ body {
   align-items: center;
 }
 
+.app-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-panel {
+  width: 100%;
+  max-width: 600px;
+}
+
 /* --- Typography --- */
 h1 {
   font-size: 3rem;
@@ -150,6 +162,16 @@ a:hover {
   color: var(--text-secondary);
   font-size: 1rem;
   margin-top: 0.5rem;
+}
+
+.header-message {
+  margin: 0.75rem 0 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.header-message-error {
+  color: #dc2626;
 }
 
 /* --- Buttons --- */
@@ -215,6 +237,14 @@ body.dark-mode .submit-btn {
   background-color: var(--surface-bg);
 }
 
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
 /* --- Input Area --- */
 .input-wrapper {
   display: flex;
@@ -245,6 +275,13 @@ body.dark-mode .submit-btn {
   /* Ring effect */
 }
 
+.loading-message {
+  text-align: center;
+  padding: 10px;
+  opacity: 0.7;
+  color: var(--text-secondary);
+}
+
 /* --- Guess Rows --- */
 .guess-row {
   position: relative;
@@ -266,6 +303,10 @@ body.dark-mode .submit-btn {
 
 .guess-row:hover {
   transform: scale(1.01);
+}
+
+.guess-list {
+  width: 100%;
 }
 
 .progress-bar {
@@ -386,26 +427,33 @@ body.dark-mode .submit-btn {
 }
 
 .menu-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.menu-list li {
+.menu-action,
+.menu-link {
   padding: 16px;
-  margin-bottom: 8px;
-  cursor: pointer;
   border-radius: 12px;
   transition: all 0.2s;
   font-size: 1.1rem;
   font-weight: 500;
   color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  text-align: left;
+  box-shadow: none;
+  display: block;
+  width: 100%;
 }
 
-.menu-list li:hover {
+.menu-action:hover,
+.menu-link:hover {
   background-color: var(--input-bg);
   color: var(--color-primary);
   transform: translateX(5px);
+  text-decoration: none;
 }
 
 /* --- Modals --- */
@@ -448,6 +496,12 @@ body.dark-mode .submit-btn {
   margin: 0;
 }
 
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 /* --- Settings & Stats --- */
 .setting-row {
   display: flex;
@@ -470,7 +524,7 @@ body.dark-mode .submit-btn {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 20px;
   text-align: center;
   margin-top: 1rem;
@@ -563,9 +617,60 @@ body.dark-mode .submit-btn {
 .ranking-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 10px 16px;
   background-color: var(--input-bg);
   border-radius: 8px;
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.ranking-button {
+  border: none;
+  width: 100%;
+  box-shadow: none;
+}
+
+.ranking-button:hover {
+  transform: translateY(-1px);
+}
+
+.previous-games-list {
+  max-height: 400px;
+}
+
+.win-message {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 18px;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--surface-shadow);
+  text-align: center;
+}
+
+.win-message h3,
+.win-message p {
+  margin: 0 0 0.75rem;
+}
+
+@media (max-width: 640px) {
+  #root {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .input-wrapper {
+    flex-direction: column;
+  }
+
+  .submit-btn,
+  .secondary-btn {
+    width: 100%;
+  }
+
+  .menu-btn {
+    top: 12px;
+    left: 12px;
+  }
 }

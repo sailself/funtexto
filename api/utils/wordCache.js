@@ -1,72 +1,88 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import fs from 'fs';
-import path from 'path';
+import db from '../db/index.js';
 import logger from './logger.js';
 
-const CACHE_DIR = path.join(process.cwd(), 'cache', 'word_lists');
-if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
-
-// In-memory map to track ongoing generations
+const hasGoogleApiKey = Boolean(process.env.GOOGLE_API_KEY?.trim());
+const genAI = hasGoogleApiKey ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
 const generationPromises = new Map();
 
-// Ensure we use the Chat/Generation model for creating the list
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' });
+const clearRelatedWordsStmt = db.prepare('DELETE FROM related_words WHERE game_id = ?');
+const insertRelatedWordStmt = db.prepare(`
+  INSERT INTO related_words (game_id, word, rank, similarity)
+  VALUES (?, ?, ?, ?)
+`);
 
-const generateList = async (target, cachePath) => {
-    logger.info(`Starting background generation for target: ${target}`);
-    try {
-        const prompt = `
-            Generate a list of 200 single unique words that are semantically related to the word "${target}".
-            Sort them by semantic closeness to "${target}" (closest first).
-            Do NOT include the word "${target}" itself.
-            Do NOT include phrases, only single words.
-            Output ONLY the words, separated by commas. No numbering, no extra text.
-        `;
+function getModel() {
+  if (!genAI) {
+    throw new Error('GOOGLE_API_KEY is required to generate related words');
+  }
 
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
+  return genAI.getGenerativeModel({
+    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+  });
+}
 
-        // Parse words, strictly single words, lowercase
-        const words = text.split(/[\n,]+/)
-            .map(w => w.trim().toLowerCase())
-            .filter(w => w && w !== target && !w.includes(' '));
+function normalizeGeneratedWords(text, target) {
+  return [...new Set(
+    text
+      .split(/[\n,]+/)
+      .map((word) => word.trim().toLowerCase())
+      .filter((word) => word && word !== target.toLowerCase() && !word.includes(' '))
+  )];
+}
 
-        // Deduplicate and cap
-        const uniqueWords = [...new Set(words)];
+export function getWordListFromDB(gameId) {
+  return db
+    .prepare('SELECT word, rank, similarity FROM related_words WHERE game_id = ? ORDER BY rank ASC')
+    .all(gameId);
+}
 
-        // Write to cache
-        fs.writeFileSync(cachePath, JSON.stringify(uniqueWords));
-        logger.info(`Generated and cached ${uniqueWords.length} words for ${target}`);
-    } catch (e) {
-        logger.error(`Failed to generate word list for ${target}`, { error: e.message });
-    } finally {
-        generationPromises.delete(target);
+export async function generateWordListForGame(gameId, target) {
+  const generationKey = `${gameId}:${target.toLowerCase()}`;
+  if (generationPromises.has(generationKey)) {
+    return generationPromises.get(generationKey);
+  }
+
+  const generationPromise = (async () => {
+    logger.info(`Generating related words for game ${gameId}`, { target });
+
+    const prompt = `
+      Generate a list of 200 unique single words that are semantically related to "${target}".
+      Sort them by closeness to "${target}" with the closest words first.
+      Do not include "${target}" itself.
+      Do not include phrases or punctuation.
+      Output only the comma-separated word list.
+    `;
+
+    const model = getModel();
+    const result = await model.generateContent(prompt);
+    const generatedWords = normalizeGeneratedWords(result.response.text(), target);
+
+    if (generatedWords.length < 25) {
+      throw new Error(`Generated word list for "${target}" was too short`);
     }
-};
 
-export const getWordList = async (target) => {
-    const sanitizedTarget = target.toLowerCase().trim();
-    const cachePath = path.join(CACHE_DIR, `${sanitizedTarget}.json`);
+    const storeWordList = db.transaction((words) => {
+      clearRelatedWordsStmt.run(gameId);
 
-    // 1. Check File Cache
-    if (fs.existsSync(cachePath)) {
-        try {
-            return JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-        } catch (e) {
-            logger.warn(`Failed to read cache for ${target}, regenerating...`, { error: e.message });
-        }
-    }
+      words.forEach((word, index) => {
+        const rank = index + 2;
+        const similarity = Math.max(0.4, 0.99 - index * 0.001);
+        insertRelatedWordStmt.run(gameId, word, rank, similarity);
+      });
+    });
 
-    // 2. Not cached? Trigger background generation if not already running
-    if (!generationPromises.has(sanitizedTarget)) {
-        logger.info(`Cache miss for ${target}. Triggering background generation.`);
-        const promise = generateList(sanitizedTarget, cachePath);
-        generationPromises.set(sanitizedTarget, promise);
-    }
+    storeWordList(generatedWords);
+    logger.info(`Stored ${generatedWords.length} related words for game ${gameId}`, { target });
 
-    // 3. Return null immediately (don't wait)
-    return null;
-};
+    return generatedWords;
+  })();
+
+  generationPromises.set(generationKey, generationPromise);
+
+  try {
+    return await generationPromise;
+  } finally {
+    generationPromises.delete(generationKey);
+  }
+}
